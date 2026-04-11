@@ -1,0 +1,42 @@
+{
+  "name": "pi-memory-honcho",
+  "version": "0.3.3",
+  "description": "Honcho-backed persistent memory extension for PI coding agent.",
+  "type": "module",
+  "license": "MIT",
+  "author": "acsezen",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/acsezen/pi-memory-honcho.git"
+  },
+  "homepage": "https://github.com/acsezen/pi-memory-honcho#readme",
+  "keywords": [
+    "pi-package",
+    "pi",
+    "honcho",
+    "memory",
+    "persistent-memory",
+    "ai-agent"
+  ],
+  "scripts": {
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@honcho-ai/sdk": "^2.0.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "vitest": "^4.1.2"
+  },
+  "peerDependencies": {
+    "@mariozechner/pi-ai": "*",
+    "@mariozechner/pi-coding-agent": "*",
+    "@sinclair/typebox": "*"
+  },
+  "pi": {
+    "extensions": [
+      "./extensions"
+    ]
+  }
+}

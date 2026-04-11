@@ -1,0 +1,8 @@
+.git
+.gitignore
+.omx
+.serena
+.codemap
+extensions/__tests__
+tsconfig.json
+CLAUDE.md
