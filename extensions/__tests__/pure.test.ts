@@ -218,6 +218,18 @@ describe("parseDotEnv", () => {
       HONCHO_AI_PEER: "assistant",
     });
   });
+
+  test("strips inline comments after quoted values", () => {
+    expect(parseDotEnv('HONCHO_API_KEY="hch-v3-test" # local key')).toEqual({
+      HONCHO_API_KEY: "hch-v3-test",
+    });
+  });
+
+  test("keeps hash characters inside quoted values", () => {
+    expect(parseDotEnv('HONCHO_API_KEY="hch#v3#test"')).toEqual({
+      HONCHO_API_KEY: "hch#v3#test",
+    });
+  });
 });
 
 describe("readDotEnv", () => {

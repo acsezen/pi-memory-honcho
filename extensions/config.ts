@@ -204,12 +204,49 @@ export const readConfigFile = async (): Promise<HonchoConfigFile | null> => {
 export const parseDotEnv = (raw: string): Record<string, string> => {
   const result: Record<string, string> = {};
 
+  const stripInlineComment = (input: string): string => {
+    let inSingle = false;
+    let inDouble = false;
+    let escaped = false;
+
+    for (let i = 0; i < input.length; i++) {
+      const char = input[i];
+
+      if (escaped) {
+        escaped = false;
+        continue;
+      }
+
+      if (char === "\\" && inDouble) {
+        escaped = true;
+        continue;
+      }
+
+      if (char === '"' && !inSingle) {
+        inDouble = !inDouble;
+        continue;
+      }
+
+      if (char === "'" && !inDouble) {
+        inSingle = !inSingle;
+        continue;
+      }
+
+      if (char === "#" && !inSingle && !inDouble) {
+        const prev = i > 0 ? input[i - 1] : "";
+        if (!prev || /\s/.test(prev)) return input.slice(0, i).trimEnd();
+      }
+    }
+
+    return input.trimEnd();
+  };
+
   for (const line of raw.replace(/^\uFEFF/, "").split(/\r?\n/)) {
     const match = line.match(/^\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)\s*$/);
     if (!match) continue;
 
     const [, key, rawValue] = match;
-    let value = rawValue.trim();
+    let value = stripInlineComment(rawValue.trim());
 
     if (!value) {
       result[key] = "";
@@ -227,8 +264,6 @@ export const parseDotEnv = (raw: string): Record<string, string> => {
           .replace(/\\"/g, '"')
           .replace(/\\\\/g, "\\");
       }
-    } else {
-      value = value.replace(/\s+#.*$/, "").trim();
     }
 
     result[key] = value;
