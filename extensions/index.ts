@@ -85,7 +85,7 @@ export default function honchoMemory(pi: ExtensionAPI): void {
         scheduler?.reset();
         scheduler = null;
 
-        const config = await resolveConfig();
+        const config = await resolveConfig(ctx.cwd);
         if (!config.enabled || !config.apiKey) {
           setStatus(ctx, "off");
           return;

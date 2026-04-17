@@ -8,8 +8,7 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "resolveJsonModule": true,
-    "types": ["node"],
-    "baseUrl": "."
+    "types": ["node"]
   },
   "include": [
     "extensions/**/*.ts",
