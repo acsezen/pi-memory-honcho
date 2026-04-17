@@ -13,11 +13,11 @@ const parseCsv = (value: string | undefined, fallback: string[]): string[] => {
     .filter(Boolean);
 };
 
-const statusText = async (): Promise<string> => {
-  const config = await resolveConfig();
+const statusText = async (cwd: string): Promise<string> => {
+  const config = await resolveConfig(cwd);
   const handles = getHandles();
   const cache = renderCachedContext(config.contextTokens);
-  const sessionSource = handles?.sessionKey && config.sessions[process.cwd()]
+  const sessionSource = handles?.sessionKey && config.sessions[cwd]
     ? "manual" : "derived";
   return [
     `Enabled: ${config.enabled ? "yes" : "no"}`,
@@ -42,7 +42,7 @@ const statusText = async (): Promise<string> => {
 
 const connect = async (ctx: ExtensionContext): Promise<void> => {
   clearHandles();
-  const config = await resolveConfig();
+  const config = await resolveConfig(ctx.cwd);
   if (!config.enabled || !config.apiKey) throw new Error("Honcho is not configured.");
   const handles = await bootstrap(config, ctx.cwd);
   await refreshCachedContext(handles);
@@ -52,14 +52,14 @@ export const registerCommands = (pi: ExtensionAPI): void => {
   pi.registerCommand("honcho:status", {
     description: "Show Honcho connection and cache status",
     handler: async (_args, ctx) => {
-      ctx.ui.notify(await statusText(), "info");
+      ctx.ui.notify(await statusText(ctx.cwd), "info");
     }
   });
 
   pi.registerCommand("honcho:setup", {
-    description: "Interactive first-time setup for Honcho in PI",
+    description: "Optional setup/override flow for Honcho in PI",
     handler: async (_args, ctx) => {
-      const existing = await resolveConfig();
+      const existing = await resolveConfig(ctx.cwd);
       const maskedKey = existing.apiKey ? `${existing.apiKey.slice(0, 6)}...` : "hch-...";
       const apiKeyInput = await ctx.ui.input("Honcho API key", maskedKey);
       const apiKey = apiKeyInput === maskedKey ? existing.apiKey : apiKeyInput;
@@ -76,7 +76,7 @@ export const registerCommands = (pi: ExtensionAPI): void => {
         existing.linkedHosts.join(", "),
       );
       const strategyInput = await ctx.ui.input(
-        "Session strategy (per-directory / git-branch / pi-session)",
+        "Session strategy (per-repo / per-directory / git-branch / pi-session / global)",
         existing.sessionStrategy,
       );
       await saveConfig({
@@ -87,7 +87,11 @@ export const registerCommands = (pi: ExtensionAPI): void => {
         endpoint: endpoint || undefined,
         linkedHosts: parseCsv(linkedHosts, existing.linkedHosts),
         sessionStrategy:
-          strategyInput === "git-branch" || strategyInput === "pi-session" || strategyInput === "per-directory"
+          strategyInput === "per-repo"
+          || strategyInput === "git-branch"
+          || strategyInput === "pi-session"
+          || strategyInput === "per-directory"
+          || strategyInput === "global"
             ? strategyInput
             : existing.sessionStrategy,
       });
@@ -99,7 +103,7 @@ export const registerCommands = (pi: ExtensionAPI): void => {
   pi.registerCommand("honcho:config", {
     description: "Show the current effective Honcho config for PI",
     handler: async (_args, ctx) => {
-      const config = await resolveConfig();
+      const config = await resolveConfig(ctx.cwd);
       const safe = { ...config, apiKey: config.apiKey ? `${config.apiKey.slice(0, 6)}...redacted` : undefined };
       ctx.ui.notify(JSON.stringify(safe, null, 2), "info");
     }
@@ -129,7 +133,7 @@ export const registerCommands = (pi: ExtensionAPI): void => {
   pi.registerCommand("honcho:doctor", {
     description: "Run a quick Honcho preflight for config, connectivity, and session mapping",
     handler: async (_args, ctx) => {
-      const config = await resolveConfig();
+      const config = await resolveConfig(ctx.cwd);
       const checks: string[] = [];
 
       checks.push(`api_key: ${config.apiKey ? "ok" : "missing"}`);

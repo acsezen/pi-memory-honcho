@@ -1,3 +1,8 @@
+import { execFile } from "node:child_process";
+import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { promisify } from "node:util";
 import { describe, expect, test } from "vitest";
 import { chunkTextSmart, sanitizeCredentials, stripToolOutput, WriteScheduler } from "../upload.js";
 import { dynamicLevel } from "../tools.js";
@@ -5,10 +10,14 @@ import {
   normalizeSessionStrategy,
   normalizeRecallMode,
   normalizeReasoningLevel,
+  parseDotEnv,
+  readDotEnv,
   resolveObservation,
 } from "../config.js";
 import type { HonchoHandles } from "../client.js";
 import type { HonchoConfig } from "../config.js";
+
+const execFileAsync = promisify(execFile);
 
 const reconstructChunkedText = (chunks: string[]): string =>
   chunks.map((chunk, index) => index === 0 ? chunk : chunk.replace(/^\[continued\] /, "")).join("");
@@ -142,13 +151,13 @@ describe("normalizeSessionStrategy", () => {
     expect(normalizeSessionStrategy("global")).toBe("global");
   });
 
-  test("defaults to per-directory for unknown values", () => {
-    expect(normalizeSessionStrategy("invalid")).toBe("per-directory");
-    expect(normalizeSessionStrategy("")).toBe("per-directory");
+  test("defaults to per-repo for unknown values", () => {
+    expect(normalizeSessionStrategy("invalid")).toBe("per-repo");
+    expect(normalizeSessionStrategy("")).toBe("per-repo");
   });
 
-  test("defaults to per-directory for undefined", () => {
-    expect(normalizeSessionStrategy(undefined)).toBe("per-directory");
+  test("defaults to per-repo for undefined", () => {
+    expect(normalizeSessionStrategy(undefined)).toBe("per-repo");
   });
 });
 
@@ -191,6 +200,58 @@ describe("normalizeReasoningLevel", () => {
   test("defaults to low for unknown values", () => {
     expect(normalizeReasoningLevel("invalid")).toBe("low");
     expect(normalizeReasoningLevel(undefined)).toBe("low");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// dotenv helpers
+// ---------------------------------------------------------------------------
+describe("parseDotEnv", () => {
+  test("parses quoted and exported env vars", () => {
+    expect(parseDotEnv([
+      'export HONCHO_API_KEY="hch-v3-test"',
+      "HONCHO_WORKSPACE_ID=pi # comment",
+      "HONCHO_AI_PEER='assistant'",
+    ].join("\n"))).toEqual({
+      HONCHO_API_KEY: "hch-v3-test",
+      HONCHO_WORKSPACE_ID: "pi",
+      HONCHO_AI_PEER: "assistant",
+    });
+  });
+});
+
+describe("readDotEnv", () => {
+  test("loads parent .env files and lets nearer files override", async () => {
+    const root = await mkdtemp(join(tmpdir(), "honcho-env-"));
+    const nested = join(root, "packages", "app");
+
+    await mkdir(nested, { recursive: true });
+    await writeFile(join(root, ".env"), "HONCHO_API_KEY=root-key\nHONCHO_WORKSPACE_ID=root\n");
+    await writeFile(join(root, ".env.local"), "HONCHO_WORKSPACE_ID=root-local\n");
+    await writeFile(join(root, "packages", ".env"), "HONCHO_API_KEY=package-key\n");
+    await writeFile(join(nested, ".env.local"), "HONCHO_AI_PEER=local-ai\n");
+    await execFileAsync("git", ["init"], { cwd: root });
+
+    const env = await readDotEnv(nested);
+
+    expect(env.HONCHO_API_KEY).toBe("package-key");
+    expect(env.HONCHO_WORKSPACE_ID).toBe("root-local");
+    expect(env.HONCHO_AI_PEER).toBe("local-ai");
+  });
+
+  test("does not read env files above the git repo root", async () => {
+    const outer = await mkdtemp(join(tmpdir(), "honcho-git-env-"));
+    const repo = join(outer, "repo");
+    const nested = join(repo, "packages", "app");
+
+    await mkdir(nested, { recursive: true });
+    await writeFile(join(outer, ".env"), "HONCHO_API_KEY=outer-key\n");
+    await writeFile(join(repo, ".env"), "HONCHO_API_KEY=repo-key\n");
+    await execFileAsync("git", ["init"], { cwd: repo });
+
+    const env = await readDotEnv(nested);
+
+    expect(env.HONCHO_API_KEY).toBe("repo-key");
   });
 });
 

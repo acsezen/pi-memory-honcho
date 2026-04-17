@@ -14,9 +14,21 @@ pi install https://github.com/acsezen/pi-memory-honcho
 
 ## Setup
 
+Zero-config is the default now:
+
 1. Get a Honcho API key from [honcho.dev](https://honcho.dev) or self-host.
-2. Run `/honcho:setup` inside PI to configure your key, workspace, and peer names.
+2. Put `HONCHO_API_KEY` into your shell env or your repo's `.env` / `.env.local`.
 3. Verify with `/honcho:doctor`.
+
+Without a config file, the extension now uses sane defaults:
+
+- `workspace`: `pi`
+- `aiPeer`: `pi`
+- `sessionStrategy`: `per-repo`
+- `recallMode`: `hybrid`
+- `peerName`: inferred from `git config user.email`, then `git config user.name`, then OS username
+
+`/honcho:setup` is still available, but mainly for overrides.
 
 Or create `~/.honcho/config.json` manually:
 
@@ -32,6 +44,12 @@ Or create `~/.honcho/config.json` manually:
     }
   }
 }
+```
+
+Or put the key in your repo's `.env` / `.env.local`:
+
+```bash
+HONCHO_API_KEY=hch-v3-...
 ```
 
 ## Features
@@ -50,7 +68,7 @@ Or create `~/.honcho/config.json` manually:
 
 | Command | Description |
 |---------|-------------|
-| `/honcho:setup` | Interactive first-time configuration |
+| `/honcho:setup` | Optional interactive setup / overrides |
 | `/honcho:status` | Show connection, cache, and config status |
 | `/honcho:config` | Show effective config (redacted API key) |
 | `/honcho:doctor` | Preflight check for config, connectivity, session |
@@ -72,8 +90,9 @@ All fields can be set via `~/.honcho/config.json` (under `hosts.pi`) or environm
 
 | Field | Env var | Default | Description |
 |-------|---------|---------|-------------|
+| `apiKey` | `HONCHO_API_KEY` | none | Honcho API key. Also loaded automatically from `.env` / `.env.local` in the current repo (or just the current directory when outside git). |
 | `recallMode` | `HONCHO_RECALL_MODE` | `hybrid` | `hybrid` / `context` / `tools` |
-| `sessionStrategy` | `HONCHO_SESSION_STRATEGY` | `per-directory` | `per-directory` / `git-branch` / `pi-session` / `per-repo` / `global` |
+| `sessionStrategy` | `HONCHO_SESSION_STRATEGY` | `per-repo` | `per-directory` / `git-branch` / `pi-session` / `per-repo` / `global` |
 | `writeFrequency` | `HONCHO_WRITE_FREQUENCY` | `async` | `async` / `turn` / `session` / N (number) |
 | `injectionFrequency` | `HONCHO_INJECTION_FREQUENCY` | `every-turn` | `every-turn` / `first-turn` |
 | `saveMessages` | `HONCHO_SAVE_MESSAGES` | `true` | Upload conversation messages to Honcho |
