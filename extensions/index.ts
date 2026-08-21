@@ -94,7 +94,6 @@ export default function honchoMemory(pi: ExtensionAPI): void {
         scheduler = new WriteScheduler(config.writeFrequency);
 
         const handles = await bootstrap(config, ctx.cwd);
-        pi.setSessionName(handles.sessionKey);
 
         if (handles.session) {
           await refreshCachedContext(handles);
